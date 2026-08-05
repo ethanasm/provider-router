@@ -1,0 +1,88 @@
+[project]
+name = "provider-router"
+version = "0.1.0"
+description = "Route one capability across interchangeable providers: preferred ordering, automatic failover on rate limits and transient errors, and a single normalized result contract."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Ethan Smith" }]
+keywords = [
+    "failover",
+    "fallback",
+    "provider",
+    "routing",
+    "circuit-breaker",
+    "rate-limit",
+    "resilience",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
+# Deliberately zero runtime dependencies: no Redis, no database, no HTTP client.
+# A resilience library that drags in infrastructure cannot be adopted by the
+# small applications that need it most.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ethanasm/provider-router"
+Issues = "https://github.com/ethanasm/provider-router/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/provider_router"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["provider_router"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["provider_router"]
+mypy_path = "src"
+strict = true
+warn_return_any = true
