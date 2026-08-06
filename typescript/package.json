@@ -1,5 +1,5 @@
 {
-  "name": "@ethanasm/provider-router",
+  "name": "provider-router",
   "version": "0.1.0",
   "description": "Route one capability across interchangeable providers: preferred ordering, automatic failover on rate limits and transient errors, and a single normalized result contract.",
   "keywords": [
@@ -47,8 +47,5 @@
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

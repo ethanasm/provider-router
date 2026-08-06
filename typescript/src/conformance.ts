@@ -9,7 +9,7 @@
  * Point this at your adapter in your own test suite:
  *
  * ```ts
- * import { assertProviderContract, FailureKind } from '@ethanasm/provider-router';
+ * import { assertProviderContract, FailureKind } from 'provider-router';
  *
  * test('geocoder contract', async () => {
  *   await assertProviderContract(new NominatimGeocoder(), {

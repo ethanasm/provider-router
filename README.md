@@ -9,7 +9,7 @@ behaviour by a shared set of test vectors.
 
 ```bash
 pip install provider-router
-npm install @ethanasm/provider-router
+npm install provider-router
 ```
 
 ## The problem
@@ -54,7 +54,7 @@ them, don't install them.
 | Path | What it is |
 |:---|:---|
 | [`python/`](python/) | `pip install provider-router` — the core, zero dependencies |
-| [`typescript/`](typescript/) | `npm i @ethanasm/provider-router` — the same core, zero dependencies |
+| [`typescript/`](typescript/) | `npm i provider-router` — the same core, zero dependencies |
 | [`spec/`](spec/) | The contract in prose, and the shared test vectors both ports run |
 | [`examples/`](examples/) | Reference adapters. Not published, not installable |
 

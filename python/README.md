@@ -11,7 +11,7 @@ pip install provider-router
 ```
 
 A TypeScript port with identical semantics ships as
-[`@ethanasm/provider-router`](https://www.npmjs.com/package/@ethanasm/provider-router).
+[`provider-router`](https://www.npmjs.com/package/provider-router).
 Both are driven by the same shared test vectors, so they cannot quietly drift
 apart.
 

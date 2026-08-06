@@ -1,4 +1,4 @@
-# @ethanasm/provider-router
+# provider-router
 
 Route one capability across interchangeable providers: preferred ordering,
 automatic failover on rate limits and transient errors, and a single normalized
@@ -7,7 +7,7 @@ result contract.
 Zero runtime dependencies. ESM, types included, Node 20+.
 
 ```bash
-npm install @ethanasm/provider-router
+npm install provider-router
 ```
 
 A Python port with identical semantics ships as
@@ -59,7 +59,7 @@ import {
   Router,
   terminal,
   transient,
-} from '@ethanasm/provider-router';
+} from 'provider-router';
 
 class Nominatim implements Provider<string, Coordinates> {
   readonly name = 'nominatim';
@@ -144,7 +144,7 @@ Per-provider, `Retry-After`-driven, with exponential backoff and half-open
 probes.
 
 ```ts
-import { breakerConfig, Router } from '@ethanasm/provider-router';
+import { breakerConfig, Router } from 'provider-router';
 
 const router = new Router([primary, backup], {
   breakerConfig: breakerConfig({ failureThreshold: 3, baseCooldown: 5 }),
@@ -167,7 +167,7 @@ implement `get`/`set` against a shared store to coordinate several processes.
 The contract test is reusable — point it at your own adapter:
 
 ```ts
-import { assertProviderContract, FailureKind } from '@ethanasm/provider-router';
+import { assertProviderContract, FailureKind } from 'provider-router';
 
 test('my adapter satisfies the contract', () => {
   assertProviderContract(new MyAdapter(), {
@@ -191,7 +191,7 @@ provider forever).
 flake:
 
 ```ts
-import { ManualClock, Router } from '@ethanasm/provider-router';
+import { ManualClock, Router } from 'provider-router';
 
 const clock = new ManualClock();
 const router = new Router([a, b], { clock });
