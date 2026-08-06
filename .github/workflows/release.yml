@@ -1,27 +1,37 @@
 name: Release
 
-# Tag-driven, one tag per ecosystem so the two can version independently:
-#   py-v0.1.0   → PyPI
-#   ts-v0.1.0   → npm
+# One tag, both registries. The two packages share a name and a version, so
+# splitting them across `py-v*` / `ts-v*` tags bought independent versioning
+# nobody wanted and cost a release that silently published nothing — `v0.1.0`
+# matched neither pattern, so the workflow never ran.
 #
-# Both publish via OIDC trusted publishing — no long-lived token in repo
-# secrets, which is the failure mode worth engineering out of a public package.
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# Publishing is idempotent: a version already present on a registry is skipped
+# rather than failing, so a re-run after a half-finished release completes it
+# instead of going red.
 on:
   push:
     tags:
-      - "py-v*"
-      - "ts-v*"
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (must match both manifests)"
+        required: true
 
 permissions:
   contents: read
 
+env:
+  VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+
 jobs:
   pypi:
-    if: startsWith(github.ref, 'refs/tags/py-v')
     runs-on: ubuntu-latest
     environment: release
     permissions:
-      id-token: write # trusted publishing
+      id-token: write # trusted publishing — no long-lived token in secrets
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -31,24 +41,34 @@ jobs:
       - run: uv pip install -e './python[dev]'
       - run: uv run pytest python/tests -q
 
-      - name: Tag must match the version in pyproject.toml
+      - name: Resolve and verify the version
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#py-v}"
-          version=$(uv run python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('python/pyproject.toml').read_text())['project']['version'])")
-          [ "$tag" = "$version" ] || { echo "tag $tag != pyproject version $version"; exit 1; }
+          want="${VERSION:-${GITHUB_REF_NAME#v}}"
+          have=$(uv run python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('python/pyproject.toml').read_text())['project']['version'])")
+          [ "$want" = "$have" ] || { echo "::error::tag $want != pyproject version $have"; exit 1; }
+          echo "version=$want" >> "$GITHUB_OUTPUT"
 
-      - run: uv build python --out-dir dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Skip if this version is already on PyPI
+        id: published
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://pypi.org/pypi/provider-router/${{ steps.version.outputs.version }}/json")
+          echo "exists=$([ "$code" = "200" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.published.outputs.exists == 'false'
+        run: uv build python --out-dir dist
+      - if: steps.published.outputs.exists == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
 
   npm:
-    if: startsWith(github.ref, 'refs/tags/ts-v')
     runs-on: ubuntu-latest
     environment: release
     defaults:
       run:
         working-directory: typescript
     permissions:
-      id-token: write # npm provenance
+      id-token: write # provenance attestation
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,12 +80,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      - name: Tag must match the version in package.json
+      - name: Resolve and verify the version
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#ts-v}"
-          version=$(node -p "require('./package.json').version")
-          [ "$tag" = "$version" ] || { echo "tag $tag != package.json version $version"; exit 1; }
+          want="${VERSION:-${GITHUB_REF_NAME#v}}"
+          have=$(node -p "require('./package.json').version")
+          [ "$want" = "$have" ] || { echo "::error::tag $want != package.json version $have"; exit 1; }
+          echo "version=$want" >> "$GITHUB_OUTPUT"
 
-      - run: npm publish --provenance --access public
+      - name: Skip if this version is already on npm
+        id: published
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/provider-router/${{ steps.version.outputs.version }}")
+          echo "exists=$([ "$code" = "200" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.published.outputs.exists == 'false'
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
