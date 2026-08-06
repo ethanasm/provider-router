@@ -39,7 +39,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run build && tsc --noEmit",
     "test": "npm run build && node --test --experimental-strip-types 'test/*.test.ts'",
     "test:coverage": "npm run build && node --test --experimental-test-coverage --experimental-strip-types 'test/*.test.ts'",
     "prepublishOnly": "npm run build"
