@@ -13,7 +13,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -36,12 +36,26 @@ import {
   Router,
   terminal,
   transient,
-} from '../dist/index.js';
+} from '../src/index.js';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const VECTORS = JSON.parse(
-  readFileSync(join(HERE, '..', '..', 'spec', 'vectors', 'routing.json'), 'utf8'),
-) as VectorFile;
+/**
+ * Walk up to the repo root to find the spec.
+ *
+ * A fixed `../../spec` breaks the moment the tests run from `dist-test/`
+ * instead of `test/` — and they do, because Node 20 has no type stripping and
+ * the library supports Node 20.
+ */
+function findVectors(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let up = 0; up < 6; up += 1) {
+    const candidate = join(dir, 'spec', 'vectors', 'routing.json');
+    if (existsSync(candidate)) return candidate;
+    dir = dirname(dir);
+  }
+  throw new Error('spec/vectors/routing.json not found walking up from the test directory');
+}
+
+const VECTORS = JSON.parse(readFileSync(findVectors(), 'utf8')) as VectorFile;
 
 interface ProviderSpec {
   name: string;

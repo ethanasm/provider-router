@@ -16,3 +16,4 @@ uv.lock
 node_modules/
 dist/
 *.tsbuildinfo
+dist-test/

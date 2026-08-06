@@ -23,7 +23,7 @@ import {
   Router,
   terminal,
   transient,
-} from '../dist/index.js';
+} from '../src/index.js';
 
 class Throttled extends Error {}
 class Blip extends Error {}
