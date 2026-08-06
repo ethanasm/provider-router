@@ -68,6 +68,17 @@ class FlightOffer(BaseModel):
 
     booking_link: str | None = None
 
+    round_trip_total: bool = False
+    """The price covers a round trip but the itinerary above describes one leg.
+
+    A scraped ranked page lists **outbound** options priced at the round-trip
+    total, with no way to fetch the exact paired return. Left unmarked, such an
+    offer is indistinguishable from a one-way at twice the going rate — and it
+    would be compared against, and stored alongside, offers that mean something
+    else. A boolean rather than an omission: the honest answer is "this price
+    includes a return I cannot show you", not silence.
+    """
+
     provider: str = Field(description="Which adapter produced this offer")
     raw: dict[str, Any] | None = Field(
         default=None,

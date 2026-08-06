@@ -161,6 +161,62 @@ backoff per re-open, and one half-open probe on expiry.
 State lives behind a `BreakerStore` protocol. The default is process-local;
 implement `get`/`set` against a shared store to coordinate several processes.
 
+## The flights pack
+
+The code this library was extracted from, shipped as a batteries-included pack.
+Three real keyless flight sources normalized to one contract:
+
+```bash
+pip install 'provider-router[flights]'          # Skiplagged + Kiwi
+pip install 'provider-router[fast-flights]'     # adds the Google Flights scraper
+```
+
+```python
+from provider_router import Router
+from provider_router.packs.flights import Cabin, FlightQuery
+from provider_router.packs.flights.kiwi import KiwiFlights
+from provider_router.packs.flights.skiplagged import SkiplaggedFlights
+
+router = Router([SkiplaggedFlights(), KiwiFlights()])
+result = await router.invoke(
+    FlightQuery("SFO", "JFK", "2026-09-15", cabin=Cabin.BUSINESS)
+)
+result.value.offers[0].flight_number  # "AS3361" — same on every provider
+```
+
+Packs are extras, so the core install stays dependency-free.
+
+| Adapter | Talks to | Its interesting problem |
+|:---|:---|:---|
+| `skiplagged` | MCP, stateful (session header) | Flight numbers exist only inside an id string |
+| `kiwi` | MCP, stateless | Each call is a *varying ~15-itinerary sample*, so coverage is unioned across draws — the origin of `DEGRADED` |
+| `fast_flights` | Scraped HTML | Every field is an undocumented integer index into an obfuscated array |
+
+### Capability claims need evidence
+
+`FlightCapabilities` records what a provider can honor, so a constraint that
+would be dropped gets reported rather than silently changing what the returned
+price is a price *for*.
+
+The rule the pack enforces: **a capability describes the provider, not your
+adapter.** Positive claims are self-correcting — say a provider can do something
+it can't and the call fails. Negative claims are not: the router simply stops
+asking, and nothing ever contradicts you. So `check_capability_evidence` refuses
+any `False` that doesn't cite the provider's own schema.
+
+Not hypothetical. The source codebase declared one provider `cabin=False` on the
+strength of *its own client* not sending the parameter. The provider had
+supported it all along, and every tracked trip was quietly priced in economy
+regardless of what the user picked. Nothing failed. Nothing logged.
+
+### Drift is a result, not a crash
+
+The scraper adapter reads fields by integer index from a payload nobody
+documents. When an index moves it returns what survived, with `partial=True` and
+a reason naming the index — so the router grades it `DEGRADED` and keeps
+looking, instead of choosing between crashing and passing off an offer with no
+flight number as a clean answer.
+
 ## Testing your adapters
 
 The contract test is reusable — point it at your own adapter:
@@ -222,8 +278,10 @@ Working: ordered failover, the outcome taxonomy, circuit breaker with
 degraded-result preference, route-terminal budget failures, events, and the
 conformance suite.
 
-Planned: a flight-search adapter pack (three real keyless sources — the code
-this was extracted from), and a budget-governor hook.
+The flights pack ships all three adapters — Skiplagged, Kiwi, and the Google
+Flights scraper — with the capability-evidence rule enforced in code.
+
+Planned: a budget-governor hook.
 
 Idempotency is deliberately not addressed: failover re-issues a request against
 a different provider, which is safe for reads and *not* safe for writes. This
