@@ -1,0 +1,71 @@
+name: Release
+
+# Tag-driven, one tag per ecosystem so the two can version independently:
+#   py-v0.1.0   → PyPI
+#   ts-v0.1.0   → npm
+#
+# Both publish via OIDC trusted publishing — no long-lived token in repo
+# secrets, which is the failure mode worth engineering out of a public package.
+on:
+  push:
+    tags:
+      - "py-v*"
+      - "ts-v*"
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    if: startsWith(github.ref, 'refs/tags/py-v')
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+
+      # Never publish something the tests haven't seen.
+      - run: uv venv --python 3.12
+      - run: uv pip install -e './python[dev]'
+      - run: uv run pytest python/tests -q
+
+      - name: Tag must match the version in pyproject.toml
+        run: |
+          tag="${GITHUB_REF_NAME#py-v}"
+          version=$(uv run python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('python/pyproject.toml').read_text())['project']['version'])")
+          [ "$tag" = "$version" ] || { echo "tag $tag != pyproject version $version"; exit 1; }
+
+      - run: uv build python --out-dir dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  npm:
+    if: startsWith(github.ref, 'refs/tags/ts-v')
+    runs-on: ubuntu-latest
+    environment: release
+    defaults:
+      run:
+        working-directory: typescript
+    permissions:
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - run: npm install --no-fund --no-audit
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Tag must match the version in package.json
+        run: |
+          tag="${GITHUB_REF_NAME#ts-v}"
+          version=$(node -p "require('./package.json').version")
+          [ "$tag" = "$version" ] || { echo "tag $tag != package.json version $version"; exit 1; }
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -31,11 +31,10 @@ class Outcome(str, Enum):
     """How good a *successful* result is.
 
     ``DEGRADED`` exists because "the call returned 200" is not the same as "the
-    provider answered well". Two real examples this was built from: a flight
-    search whose result set silently omits whole carriers because an internal
-    coverage query failed mid-union, and a geocoder returning 200 with no
-    latitude/longitude. Both are successes by any transport measure and useless
-    to the caller.
+    provider answered well". A geocoder that returns 200 with no latitude or
+    longitude; a search whose result set silently drops a whole category
+    because one internal query failed mid-union. Both are successes by every
+    transport measure and useless to the caller.
 
     A ``DEGRADED`` result is *kept* — it is better than nothing — but the router
     will keep looking for an ``OK`` one from a lower-preference provider before
@@ -63,9 +62,9 @@ class FailureKind(str, Enum):
 
     Distinct from ``TERMINAL`` because it is not a failure at all — it is the
     router declining to let a provider answer a *different question* than the
-    one asked. A flight search that drops the caller's cabin-class constraint
-    and returns economy prices has not failed; it has silently changed what the
-    price is a price for, which is worse.
+    one asked. A search that drops the caller's filter and returns unfiltered
+    results has not failed; it has silently changed what the answer is an
+    answer *to*, which is worse — nothing downstream can tell.
     """
 
     BUDGET = "budget"

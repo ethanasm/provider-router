@@ -1,0 +1,39 @@
+# Reference adapters, not a published package.
+#
+# This exists to prove the contract survives contact with three genuinely
+# hostile real providers — a stateful MCP server, a stateless one that returns
+# a *varying sample* per call, and an HTML scrape with no schema at all. It is
+# deliberately a separate project that depends on `provider-router` from
+# outside, because that is the only arrangement in which "the core supports
+# out-of-tree adapters" is a fact CI can check rather than a claim the README
+# makes.
+#
+# Copy what you need into your own app. Don't pip install this.
+[project]
+name = "provider-router-flights-example"
+version = "0.0.0"
+description = "Reference flight adapters for provider-router (example code, not published)"
+requires-python = ">=3.10"
+dependencies = ["provider-router", "pydantic>=2.0", "httpx>=0.27"]
+
+[project.optional-dependencies]
+# The Google Flights scraper's fetcher. Only *fetching* needs it — the payload
+# parser and every test in this directory run without it.
+"fast-flights" = ["fast-flights>=2.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["B008"]
+
+[[tool.mypy.overrides]]
+module = ["fast_flights.*"]
+ignore_missing_imports = true

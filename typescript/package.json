@@ -1,0 +1,54 @@
+{
+  "name": "@ethanasm/provider-router",
+  "version": "0.1.0",
+  "description": "Route one capability across interchangeable providers: preferred ordering, automatic failover on rate limits and transient errors, and a single normalized result contract.",
+  "keywords": [
+    "failover",
+    "fallback",
+    "provider",
+    "routing",
+    "circuit-breaker",
+    "rate-limit",
+    "resilience"
+  ],
+  "homepage": "https://github.com/ethanasm/provider-router",
+  "bugs": "https://github.com/ethanasm/provider-router/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ethanasm/provider-router.git",
+    "directory": "typescript"
+  },
+  "license": "MIT",
+  "author": "Ethan Smith",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test --experimental-strip-types 'test/*.test.ts'",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage --experimental-strip-types 'test/*.test.ts'",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

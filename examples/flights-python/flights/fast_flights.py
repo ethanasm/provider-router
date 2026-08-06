@@ -38,9 +38,10 @@ from decimal import Decimal
 from itertools import pairwise
 from typing import Any
 
-from ...clock import Deadline
-from ...outcomes import Failure, Outcome, terminal, transient
-from ...provider import Attempt
+from provider_router.clock import Deadline
+from provider_router.outcomes import Failure, Outcome, terminal, transient
+from provider_router.provider import Attempt
+
 from .google_payload import (
     GooglePayloadError,
     NoFlightsFound,

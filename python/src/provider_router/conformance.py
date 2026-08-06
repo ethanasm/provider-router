@@ -9,17 +9,21 @@ Point this at your adapter in your own test suite::
 
     from provider_router.conformance import assert_provider_contract
 
-    def test_kiwi_adapter_contract():
+    def test_geocoder_contract():
         assert_provider_contract(
-            KiwiAdapter(),
-            sample_request=FlightQuery(origin="SFO", destination="JFK"),
-            sample_result=FlightResults(...),
+            NominatimGeocoder(),
+            sample_request=Address("1600 Amphitheatre Pkwy"),
+            sample_result=Coordinates(lat=37.42, lon=-122.08),
             expected_classifications={
                 HTTPError(429): FailureKind.RATE_LIMITED,
                 ConnectionResetError(): FailureKind.TRANSIENT,
-                ValueError("bad airport"): FailureKind.TERMINAL,
+                ValueError("unparseable address"): FailureKind.TERMINAL,
             },
         )
+
+Adapters are *your* code — they encode your providers and your failure
+dialects, so this library never ships them. What it ships is the contract they
+implement and this test that holds them to it.
 """
 
 from __future__ import annotations

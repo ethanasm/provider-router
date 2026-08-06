@@ -244,13 +244,28 @@ class Router(Generic[Req, Res]):
         return AttemptRecord(provider.name, outcome=outcome, elapsed=elapsed), value
 
     def _classify(self, provider: Provider[Req, Res], exc: BaseException) -> Failure:
-        """Ask the adapter what went wrong; a broken ``classify`` must not mask the cause."""
+        """Ask the adapter what went wrong; a broken ``classify`` must not mask the cause.
+
+        Two ways an adapter can be broken here, and both must degrade to
+        ``TERMINAL`` rather than to a crash: raising, and *returning* something
+        that is not a ``Failure`` — usually ``None``, from a chain of
+        ``isinstance`` checks with no final ``return``. The second is the
+        nastier one: it surfaces as an ``AttributeError`` from inside the
+        router, which reads as a router bug and sends people to the wrong file.
+        """
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise exc
         try:
-            return provider.classify(exc)
+            failure = provider.classify(exc)
         except Exception:
             return terminal(f"{provider.name}.classify raised on {type(exc).__name__}", cause=exc)
+        if not isinstance(failure, Failure):
+            return terminal(
+                f"{provider.name}.classify returned {failure!r}, not a Failure; "
+                "an unclassified error cannot be routed safely",
+                cause=exc,
+            )
+        return failure
 
     def _record_failure(self, name: str, failure: Failure) -> None:
         retry_after = failure.retry_after if failure.kind is FailureKind.RATE_LIMITED else None

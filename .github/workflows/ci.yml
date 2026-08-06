@@ -4,52 +4,67 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
-  test:
+  python:
+    name: python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
-
     steps:
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv venv --python ${{ matrix.python-version }}
+      - run: uv pip install -e './python[dev]'
+      - run: uv run ruff check python
+      - run: uv run ruff format --check python
+      - run: uv run mypy --config-file python/pyproject.toml
+      - run: uv run pytest python/tests --cov --cov-report=term-missing
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+  typescript:
+    name: typescript node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: typescript
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          enable-cache: true
+          node-version: ${{ matrix.node-version }}
+      - run: npm install --no-fund --no-audit
+      - run: npm run typecheck
+      - run: npm test
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install
-        run: uv sync --extra dev
-
-      - name: Lint
-        run: uv run ruff check .
-
-      - name: Format check
-        run: uv run ruff format --check .
-
-      - name: Typecheck
-        run: uv run mypy
-
-      - name: Test
-        run: uv run pytest --cov=provider_router --cov-report=term-missing
-
-  build:
+  # The reference adapters install `provider-router` from outside the package,
+  # which is the only arrangement in which "the core supports out-of-tree
+  # adapters" is a fact CI can check rather than a claim the README makes.
+  examples:
+    name: examples (out-of-tree adapters)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - name: Build distributions
-        run: uv build
-      - name: Check metadata
-        run: uvx twine check dist/*
+      - run: uv venv --python 3.12
+      - run: uv pip install -e ./python pydantic httpx pytest pytest-asyncio ruff
+      - run: uv run ruff check examples
+      - working-directory: examples/flights-python
+        run: uv run --project ../.. pytest .
+
+  # Both suites read spec/vectors/routing.json. If one port's behaviour drifts,
+  # exactly one of these jobs goes red — which is the entire point.
+  parity:
+    name: shared vectors agree
+    needs: [python, typescript]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Python and TypeScript both ran spec/vectors/routing.json and agreed."

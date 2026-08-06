@@ -15,24 +15,24 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-
 from provider_router import Deadline, FailureKind, ManualClock, Outcome
 from provider_router.conformance import assert_provider_contract
-from provider_router.packs.flights import (
+
+from flights import (
     Cabin,
     FlightQuery,
     FlightResults,
     Stops,
     check_capability_evidence,
 )
-from provider_router.packs.flights.fast_flights import (
+from flights.fast_flights import (
     FastFlights,
     FastFlightsBlocked,
     FastFlightsUnavailable,
     GoogleFlightsFetcher,
     build_google_query,
 )
-from provider_router.packs.flights.google_payload import (
+from flights.google_payload import (
     GooglePayloadError,
     NoFlightsFound,
     parse_flights_page,

@@ -1,0 +1,582 @@
+{
+  "$comment": "Shared routing test vectors. Both the Python and TypeScript suites read this file and must agree. A behavioural change has to land in both ports or CI goes red \u2014 which is the only thing that keeps two implementations of the same contract honest. See spec/README.md for the schema.",
+  "version": 1,
+  "cases": [
+    {
+      "name": "first provider answers",
+      "why": "The baseline. No failover, no attempt at anyone else.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "ok"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "a",
+        "outcome": "ok",
+        "attempts": [
+          "a:ok"
+        ],
+        "failed_over": false
+      }
+    },
+    {
+      "name": "transient failure fails over",
+      "why": "The whole reason the library exists.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:transient",
+          "b:ok"
+        ],
+        "failed_over": true
+      }
+    },
+    {
+      "name": "rate limit fails over",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "rate_limited"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:rate_limited",
+          "b:ok"
+        ]
+      }
+    },
+    {
+      "name": "an unsupported request skips before any IO",
+      "why": "supports() is checked first, so a provider that cannot honour a constraint never gets called at all.",
+      "providers": [
+        {
+          "name": "a",
+          "supports": false,
+          "script": [
+            "ok"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:skipped",
+          "b:ok"
+        ],
+        "calls": {
+          "a": 0,
+          "b": 1
+        }
+      }
+    },
+    {
+      "name": "a degraded result is held while better is sought",
+      "why": "DEGRADED is kept but not settled for \u2014 the router keeps looking.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "degraded"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:degraded",
+          "b:ok"
+        ],
+        "calls": {
+          "a": 1,
+          "b": 1
+        }
+      }
+    },
+    {
+      "name": "the degraded result is returned when nothing better appears",
+      "why": "Thin beats nothing \u2014 and the caller is told which it got.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "degraded"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "transient"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "a",
+        "outcome": "degraded",
+        "attempts": [
+          "a:degraded",
+          "b:transient"
+        ]
+      }
+    },
+    {
+      "name": "the first degraded result wins over a later one",
+      "why": "Ties go to preference order, not to whoever answered last.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "degraded"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "degraded"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "a",
+        "outcome": "degraded"
+      }
+    },
+    {
+      "name": "every provider failing raises",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "terminal"
+          ]
+        }
+      ],
+      "expect": {
+        "raises": "all_providers_failed",
+        "attempts": [
+          "a:transient",
+          "b:terminal"
+        ]
+      }
+    },
+    {
+      "name": "a budget failure aborts the route instead of failing over",
+      "why": "Failing over would spend more against the ceiling that just tripped.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "budget"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "raises": "route_aborted",
+        "attempts": [
+          "a:budget"
+        ],
+        "calls": {
+          "a": 1,
+          "b": 0
+        }
+      }
+    },
+    {
+      "name": "a budget failure does not open the circuit",
+      "why": "The route aborted before the breaker was told \u2014 the provider is not unhealthy.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "budget"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "raises": "route_aborted",
+        "circuit_open": {
+          "a": false
+        }
+      }
+    },
+    {
+      "name": "an adapter whose classify throws is treated as terminal",
+      "why": "A broken classify must not mask the underlying cause or crash the route.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "classify_throws"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:terminal",
+          "b:ok"
+        ]
+      }
+    },
+    {
+      "name": "an adapter whose classify returns nothing is treated as terminal",
+      "why": "Same reasoning: an unclassified error cannot be routed safely.",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "classify_returns_nothing"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:terminal",
+          "b:ok"
+        ]
+      }
+    },
+    {
+      "name": "the circuit opens after the failure threshold and skips the provider",
+      "why": "Three routes, each failing a; on the third it is skipped without a call.",
+      "breaker": {
+        "failure_threshold": 3,
+        "base_cooldown": 30
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "routes": 4,
+      "expect": {
+        "served_by": "b",
+        "outcome": "ok",
+        "attempts": [
+          "a:skipped",
+          "b:ok"
+        ],
+        "calls": {
+          "a": 3,
+          "b": 4
+        },
+        "circuit_open": {
+          "a": true
+        }
+      }
+    },
+    {
+      "name": "an advertised retry_after opens the circuit immediately",
+      "why": "We believe a provider that tells us its own limit \u2014 no reason to make it say so three times.",
+      "breaker": {
+        "failure_threshold": 3,
+        "base_cooldown": 5
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "rate_limited:90"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "expect": {
+        "served_by": "b",
+        "cooldown": {
+          "a": 90
+        },
+        "circuit_open": {
+          "a": true
+        }
+      }
+    },
+    {
+      "name": "cooldown doubles on each consecutive open",
+      "breaker": {
+        "failure_threshold": 1,
+        "base_cooldown": 5,
+        "max_cooldown": 300
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient",
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok",
+            "ok"
+          ]
+        }
+      ],
+      "routes": 2,
+      "advance_between_routes": 10,
+      "expect": {
+        "cooldown": {
+          "a": 10
+        }
+      }
+    },
+    {
+      "name": "a success closes the circuit and forgets the history",
+      "breaker": {
+        "failure_threshold": 2,
+        "base_cooldown": 5
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient",
+            "ok",
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok",
+            "ok",
+            "ok"
+          ]
+        }
+      ],
+      "routes": 3,
+      "expect": {
+        "circuit_open": {
+          "a": false
+        },
+        "calls": {
+          "a": 3
+        }
+      }
+    },
+    {
+      "name": "a failed half-open probe reopens the circuit at once",
+      "why": "The probe is the test; failing it is not one ordinary failure among many.",
+      "breaker": {
+        "failure_threshold": 2,
+        "base_cooldown": 10,
+        "max_cooldown": 300
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient",
+            "transient",
+            "transient"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok",
+            "ok",
+            "ok"
+          ]
+        }
+      ],
+      "routes": 3,
+      "advance_between_routes": 11,
+      "expect": {
+        "circuit_open": {
+          "a": true
+        },
+        "cooldown": {
+          "a": 20
+        }
+      }
+    },
+    {
+      "name": "an expired deadline skips remaining providers",
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "transient"
+          ],
+          "duration": 30
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok"
+          ]
+        }
+      ],
+      "timeout": 10,
+      "expect": {
+        "raises": "all_providers_failed",
+        "attempts": [
+          "a:transient",
+          "b:skipped"
+        ],
+        "calls": {
+          "b": 0
+        }
+      }
+    },
+    {
+      "name": "pacing delays a call rather than skipping it",
+      "breaker": {
+        "min_interval": 1
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "ok",
+            "ok"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok",
+            "ok"
+          ]
+        }
+      ],
+      "routes": 2,
+      "expect": {
+        "served_by": "a",
+        "slept": [
+          1
+        ]
+      }
+    },
+    {
+      "name": "pacing that would exceed the deadline skips instead of sleeping",
+      "why": "Spending the caller's whole budget waiting to be polite serves nobody.",
+      "breaker": {
+        "min_interval": 60
+      },
+      "providers": [
+        {
+          "name": "a",
+          "script": [
+            "ok",
+            "ok"
+          ]
+        },
+        {
+          "name": "b",
+          "script": [
+            "ok",
+            "ok"
+          ]
+        }
+      ],
+      "routes": 2,
+      "timeout": 5,
+      "expect": {
+        "served_by": "b",
+        "calls": {
+          "a": 1,
+          "b": 1
+        }
+      }
+    }
+  ]
+}

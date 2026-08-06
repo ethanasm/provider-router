@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-
 from provider_router import ContractViolation
-from provider_router.packs.flights import (
+
+from flights import (
     Cabin,
     FlightCapabilities,
     FlightOffer,

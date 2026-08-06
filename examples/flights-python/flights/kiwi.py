@@ -24,10 +24,10 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
+from provider_router.clock import Deadline
+from provider_router.outcomes import Failure, Outcome, rate_limited, terminal, transient
+from provider_router.provider import Attempt
 
-from ...clock import Deadline
-from ...outcomes import Failure, Outcome, rate_limited, terminal, transient
-from ...provider import Attempt
 from .models import FlightOffer, FlightResults
 from .query import Cabin, FlightCapabilities, FlightQuery, Stops
 

@@ -6,17 +6,17 @@ import json
 
 import httpx
 import pytest
-
 from provider_router import Deadline, FailureKind, ManualClock, Outcome
 from provider_router.conformance import assert_provider_contract
-from provider_router.packs.flights import (
+
+from flights import (
     Cabin,
     FlightQuery,
     FlightResults,
     Stops,
     check_capability_evidence,
 )
-from provider_router.packs.flights.kiwi import (
+from flights.kiwi import (
     KiwiError,
     KiwiFlights,
     KiwiUnsupportedQuery,

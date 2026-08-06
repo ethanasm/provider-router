@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from dataclasses import fields
 
-from ...conformance import ContractViolation
+from provider_router.conformance import ContractViolation
+
 from .query import FlightCapabilities
 
 __all__ = ["assert_capability_evidence", "check_capability_evidence"]

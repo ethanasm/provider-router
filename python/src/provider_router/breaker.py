@@ -1,9 +1,9 @@
 """Per-provider circuit breaker and outbound pacing.
 
 This is the *negative* cache — the only caching this library does. Remembering
-"Skiplagged asked for 90 seconds, don't call it again until then" is failover
-state. Caching successful responses is the application's business and is
-deliberately out of scope.
+"that provider asked for 90 seconds, don't call it again until then" is
+failover state. Caching successful responses is the application's business and
+is deliberately out of scope.
 
 State lives behind :class:`BreakerStore` so it can be process-local (the
 default, zero infrastructure) or shared across processes later. No Redis, no
